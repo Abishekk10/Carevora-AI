@@ -45,6 +45,11 @@ class ChatRequest(RequestSchema):
     message: str = Field(min_length=1, max_length=10_000)
 
 
+class ResumeMatchRequest(RequestSchema):
+    resume_id: str = Field(min_length=1, max_length=36)
+    job_id: str = Field(min_length=1, max_length=255)
+
+
 def validate_payload(schema: type[Schema], payload: object) -> Schema:
     """Validate a JSON-compatible payload and expose consistent API errors."""
     try:

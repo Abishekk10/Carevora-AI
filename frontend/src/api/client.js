@@ -37,7 +37,8 @@ export const resumesApi = {
 };
 
 export const jobsApi = {
-  search: async (payload) => (await apiClient.post("/api/jobs/search", payload)).data
+  search: async (payload) => (await apiClient.post("/api/jobs/search", payload)).data,
+  match: async (resumeId, jobId) => (await apiClient.post("/api/jobs/match", { resume_id: resumeId, job_id: jobId }, { timeout: 90_000 })).data.match
 };
 
 export const chatApi = {

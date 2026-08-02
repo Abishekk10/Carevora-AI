@@ -3,6 +3,8 @@
 import logging
 
 from tools.job_search import search_jobs
+from database import db
+from models.job_listing import JobListing
 from services.errors import APIError
 from services.validation import JobSearchRequest, validate_payload
 
@@ -22,4 +24,21 @@ def search_available_jobs(payload: object) -> list[dict]:
     except Exception as error:
         logger.exception("Job provider request failed")
         raise APIError("Job search is temporarily unavailable.", 502) from error
-    return [job.model_dump() for job in jobs]
+    serialized_jobs = [job.model_dump() for job in jobs]
+    _cache_jobs(serialized_jobs)
+    return serialized_jobs
+
+
+def _cache_jobs(jobs: list[dict]) -> None:
+    """Persist provider results so a later match request can resolve its job ID."""
+    try:
+        for job_data in jobs:
+            job = db.session.get(JobListing, job_data["id"])
+            if job is None:
+                job = JobListing(id=job_data["id"])
+                db.session.add(job)
+            job.update_from_dict(job_data)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Unable to cache job search results")
