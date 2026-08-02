@@ -1,0 +1,19 @@
+import { AlertCircle, CheckCircle2, Save, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { usersApi } from "../api/client";
+import Loader from "../components/common/Loader";
+import { useUser } from "../context/UserContext";
+
+export default function Profile() {
+  const { user, setUser } = useUser();
+  const [form, setForm] = useState({ full_name: user?.full_name || "", email: user?.email || "" });
+  const [isLoading, setLoading] = useState(Boolean(user?.id));
+  const [isSaving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  useEffect(() => { let active = true; if (!user?.id) { setLoading(false); return undefined; } usersApi.get(user.id).then((profile) => { if (active) { setUser(profile); setForm({ full_name: profile.full_name, email: profile.email }); } }).catch((requestError) => { if (active) setError(requestError.message); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [user?.id, setUser]);
+  const submit = async (event) => { event.preventDefault(); setError(""); setSuccess(""); setSaving(true); try { const profile = user?.id ? await usersApi.update(user.id, { full_name: form.full_name }) : await usersApi.create(form); setUser(profile); setForm({ full_name: profile.full_name, email: profile.email }); setSuccess(user?.id ? "Profile updated." : "Profile created. You’re ready to upload a resume."); } catch (requestError) { setError(requestError.message); } finally { setSaving(false); } };
+  if (isLoading) return <Loader label="Loading profile" />;
+  return <section className="animate-fade-up"><h1 className="page-title">Your profile</h1><p className="page-subtitle">This information connects your resume and application workspace.</p><div className="mt-7 grid gap-6 lg:grid-cols-[260px_1fr]"><aside className="surface h-fit p-6 text-center"><span className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-indigo-100 text-indigo-700"><UserRound className="h-9 w-9" /></span><h2 className="mt-4 font-bold text-slate-900">{user?.full_name || "Your JobPilot profile"}</h2><p className="mt-1 break-all text-sm text-slate-500">{user?.email || "Add your details to get started"}</p></aside><form onSubmit={submit} className="surface p-6 sm:p-8"><div className="flex items-center justify-between"><div><h2 className="font-bold text-slate-900">Personal details</h2><p className="mt-1 text-sm text-slate-500">Keep your profile accurate and professional.</p></div></div>{error && <div className="mt-6 flex gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><AlertCircle className="h-5 w-5 shrink-0" />{error}</div>}{success && <div className="mt-6 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700"><CheckCircle2 className="h-5 w-5 shrink-0" />{success}</div>}<div className="mt-7 grid gap-5"><label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Full name</span><input className="field" value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} required minLength={1} maxLength={255} /></label><label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Email address</span><input className="field disabled:bg-slate-50" type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required disabled={Boolean(user?.id)} /><span className="mt-2 block text-xs text-slate-400">Email is fixed after profile creation.</span></label></div><button className="btn-primary mt-8" disabled={isSaving}>{isSaving ? "Saving…" : <><Save className="h-4 w-4" />{user ? "Save changes" : "Create profile"}</>}</button></form></div></section>;
+}

@@ -1,28 +1,131 @@
-"""Flask application entry point."""
+"""JobPilot Flask application factory."""
 
+import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from flask import Flask, jsonify
+from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 
-from resume_upload import register_resume_upload_routes
+from config import PROJECT_ROOT, Settings
+from database import db
+from routes import chat_bp, jobs_bp, resumes_bp, users_bp
+from services.errors import APIError
+
+
+def configure_logging(app: Flask) -> None:
+    """Configure structured application logging once per application instance."""
+    app.logger.setLevel(app.config["LOG_LEVEL"])
+
+    if any(isinstance(handler, RotatingFileHandler) for handler in app.logger.handlers):
+        return
+
+    logs_dir = PROJECT_ROOT / "logs"
+    logs_dir.mkdir(exist_ok=True)
+
+    handler = RotatingFileHandler(
+        logs_dir / "jobpilot.log",
+        maxBytes=1_000_000,
+        backupCount=3,
+    )
+
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s %(levelname)s %(name)s %(message)s"
+        )
+    )
+
+    app.logger.addHandler(handler)
+
+
+def register_error_handlers(app: Flask) -> None:
+    """Register consistent JSON error responses for API clients."""
+
+    @app.errorhandler(APIError)
+    def handle_api_error(error: APIError):
+        payload = {"error": error.message}
+
+        if error.details is not None:
+            payload["details"] = error.details
+
+        return jsonify(payload), error.status_code
+
+    @app.errorhandler(413)
+    def handle_request_too_large(_error):
+        return jsonify(error="File is too large."), 413
+
+    @app.errorhandler(HTTPException)
+    def handle_http_error(error: HTTPException):
+        return jsonify(error=error.description), error.code
+
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error: Exception):
+        app.logger.exception(
+            "Unhandled application error",
+            exc_info=error,
+        )
+        return jsonify(error="An unexpected server error occurred."), 500
 
 
 def create_app(test_config: dict | None = None) -> Flask:
-    """Create and configure the JobPilot web application."""
+    """Create and configure the JobPilot API application."""
+
     app = Flask(__name__)
+
+    # ✅ Enable CORS for React frontend
+    CORS(
+        app,
+        resources={r"/*": {"origins": [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173"
+        ]}},
+        supports_credentials=True,
+    )
+
     app.config.from_mapping(
-        UPLOAD_FOLDER=Path(app.root_path) / "uploads",
-        MAX_CONTENT_LENGTH=10 * 1024 * 1024,  # 10 MiB
+        SECRET_KEY=Settings.SECRET_KEY,
+        SQLALCHEMY_DATABASE_URI=Settings.DATABASE_URL,
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        UPLOAD_FOLDER=Settings.UPLOAD_FOLDER,
+        MAX_CONTENT_LENGTH=Settings.MAX_CONTENT_LENGTH,
+        LOG_LEVEL=Settings.LOG_LEVEL,
     )
 
     if test_config:
         app.config.update(test_config)
 
-    register_resume_upload_routes(app)
+    Path(app.config["UPLOAD_FOLDER"]).mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-    @app.errorhandler(413)
-    def request_too_large(_error):
-        return jsonify(error="File is too large. Maximum size is 10 MiB."), 413
+    configure_logging(app)
+
+    db.init_app(app)
+
+    app.register_blueprint(users_bp)
+    app.register_blueprint(resumes_bp)
+    app.register_blueprint(jobs_bp)
+    app.register_blueprint(chat_bp)
+
+    register_error_handlers(app)
+
+    with app.app_context():
+        db.create_all()
+
+    @app.get("/")
+    def home():
+        return jsonify(
+            project="JobPilot",
+            status="running",
+            version="1.0"
+        )
+
+    @app.get("/health")
+    def health_check():
+        """Expose a lightweight health endpoint."""
+        return jsonify(status="ok")
 
     return app
 
@@ -31,4 +134,8 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=True,
+    )

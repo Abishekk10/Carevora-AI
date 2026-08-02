@@ -1,7 +1,11 @@
+import logging
+
 import requests
 
 from config import ADZUNA_APP_ID, ADZUNA_APP_KEY
 from models.job import Job
+
+logger = logging.getLogger(__name__)
 
 
 def search_jobs(
@@ -30,7 +34,7 @@ def search_jobs(
     response.raise_for_status()
 
     data = response.json()
-    print(data)
+    logger.info("Adzuna returned %d jobs", len(data.get("results", [])))
 
     jobs = []
 

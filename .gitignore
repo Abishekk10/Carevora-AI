@@ -2,3 +2,7 @@ venv/
 .env
 __pycache__/
 uploads/
+logs/
+jobpilot.db
+frontend/node_modules/
+frontend/dist/
