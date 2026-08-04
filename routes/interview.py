@@ -85,6 +85,11 @@ def answer_interview_question():
     if not answer.strip():
         return jsonify(error="Answer cannot be empty."), 400
 
+    # Verify session ownership
+    session_obj = db.session.get(InterviewSession, session_id)
+    if not session_obj or session_obj.user_id != user.id:
+        return jsonify(error="Session not found."), 404
+
     try:
         question, next_question, completed_session = submit_answer(
             session_id=session_id,
