@@ -88,6 +88,9 @@ def create_app(test_config: dict | None = None) -> Flask:
         ]}},
         supports_credentials=True,
     )
+    # Auto-detect production environment based on PORT environment indicator
+    is_prod = os.getenv("PORT") is not None or os.getenv("FLASK_ENV") == "production"
+
     app.config.from_mapping(
         SECRET_KEY=Settings.SECRET_KEY,
         SQLALCHEMY_DATABASE_URI=Settings.DATABASE_URL,
@@ -95,10 +98,11 @@ def create_app(test_config: dict | None = None) -> Flask:
         UPLOAD_FOLDER=Settings.UPLOAD_FOLDER,
         MAX_CONTENT_LENGTH=Settings.MAX_CONTENT_LENGTH,
         LOG_LEVEL=Settings.LOG_LEVEL,
-        # The React app calls this API cross-origin, so the session cookie must
+        # The React app calls this API cross-origin in production, so the session cookie must
         # be sent on cross-site requests. "None" + Secure (HTTPS) allows that.
-        SESSION_COOKIE_SAMESITE="None",
-        SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true",
+        # Locally in development, we use Lax SameSite policy without Secure since it's served over HTTP.
+        SESSION_COOKIE_SAMESITE=os.getenv("SESSION_COOKIE_SAMESITE", "None" if is_prod else "Lax"),
+        SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "true" if is_prod else "false").lower() == "true",
     )
 
     if test_config:
