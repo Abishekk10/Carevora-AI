@@ -1,6 +1,7 @@
 """JobPilot Flask application factory."""
 
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -92,6 +93,10 @@ def create_app(test_config: dict | None = None) -> Flask:
         UPLOAD_FOLDER=Settings.UPLOAD_FOLDER,
         MAX_CONTENT_LENGTH=Settings.MAX_CONTENT_LENGTH,
         LOG_LEVEL=Settings.LOG_LEVEL,
+        # The React app calls this API cross-origin, so the session cookie must
+        # be sent on cross-site requests. "None" + Secure (HTTPS) allows that.
+        SESSION_COOKIE_SAMESITE="None",
+        SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true",
     )
 
     if test_config:
@@ -138,8 +143,6 @@ def create_app(test_config: dict | None = None) -> Flask:
 
 app = create_app()
 
-
-import os
 
 if __name__ == "__main__":
     app.run(
