@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -74,18 +75,19 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     app = Flask(__name__)
 
-    # ✅ Enable CORS for React frontend
+    # ✅ Enable CORS for React frontend on localhost and Vercel subdomains
     CORS(
-    app,
-    resources={r"/api/*": {"origins": [
-        "https://carevora-app.vercel.app",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174"
-    ]}},
-    supports_credentials=True,
-)
+        app,
+        resources={r"/*": {"origins": [
+            "https://carevora-app.vercel.app",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174",
+            re.compile(r"^https://.*\.vercel\.app$")
+        ]}},
+        supports_credentials=True,
+    )
     app.config.from_mapping(
         SECRET_KEY=Settings.SECRET_KEY,
         SQLALCHEMY_DATABASE_URI=Settings.DATABASE_URL,
