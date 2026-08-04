@@ -75,16 +75,16 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     # ✅ Enable CORS for React frontend
     CORS(
-        app,
-        resources={r"/*": {"origins": [
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://localhost:5174",
-            "http://127.0.0.1:5174"
-        ]}},
-        supports_credentials=True,
-    )
-
+    app,
+    resources={r"/api/*": {"origins": [
+        "https://carevora-app.vercel.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174"
+    ]}},
+    supports_credentials=True,
+)
     app.config.from_mapping(
         SECRET_KEY=Settings.SECRET_KEY,
         SQLALCHEMY_DATABASE_URI=Settings.DATABASE_URL,
