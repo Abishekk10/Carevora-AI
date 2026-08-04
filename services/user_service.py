@@ -1,6 +1,7 @@
 """User profile business logic."""
 
 from sqlalchemy.exc import IntegrityError
+from werkzeug.security import generate_password_hash
 
 from database import db
 from models.user import User
@@ -11,7 +12,11 @@ from services.validation import CreateUserRequest, UpdateUserRequest, validate_p
 def create_user(payload: object) -> User:
     """Validate and persist a new user profile."""
     data = validate_payload(CreateUserRequest, payload)
-    user = User(email=data.email, full_name=data.full_name)
+    user = User(
+    email=data.email,
+    full_name=data.full_name,
+    password_hash=generate_password_hash(data.password),
+)
     db.session.add(user)
     try:
         db.session.commit()

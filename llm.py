@@ -1,15 +1,15 @@
 from google import genai
-from config import GEMINI_API_KEY
+from config import Settings
 
 
-def ask_gemini(prompt: str) -> str:
+def ask_gemini(prompt: str, *, model: str | None = None) -> str:
     """Send a prompt to Gemini using the configured API key."""
-    if not GEMINI_API_KEY:
+    if not Settings.GEMINI_API_KEY:
         raise ValueError("Gemini API is not configured.")
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = genai.Client(api_key=Settings.GEMINI_API_KEY)
     response = client.models.generate_content(
-        model="gemini-3.5-flash",
+        model=model or Settings.GEMINI_MODEL,
         contents=prompt
     )
     if not response.text:

@@ -20,6 +20,7 @@ class RequestSchema(BaseModel):
 class CreateUserRequest(RequestSchema):
     email: str = Field(max_length=255)
     full_name: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
 
     @field_validator("email")
     @classmethod
@@ -28,7 +29,6 @@ class CreateUserRequest(RequestSchema):
         if not EMAIL_PATTERN.fullmatch(value):
             raise ValueError("must be a valid email address")
         return value
-
 
 class UpdateUserRequest(RequestSchema):
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
@@ -48,6 +48,11 @@ class ChatRequest(RequestSchema):
 class ResumeMatchRequest(RequestSchema):
     resume_id: str = Field(min_length=1, max_length=36)
     job_id: str = Field(min_length=1, max_length=255)
+
+
+class RAGChatRequest(RequestSchema):
+    question: str = Field(min_length=1, max_length=10_000)
+    user_id: str = Field(min_length=1, max_length=36)
 
 
 def validate_payload(schema: type[Schema], payload: object) -> Schema:

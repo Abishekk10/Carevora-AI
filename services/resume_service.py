@@ -9,6 +9,7 @@ from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
 from database import db
+from models.dashboard import DashboardActivity
 from models.resume import Resume
 from models.resume_intelligence import ResumeIntelligence
 from services.resume_intelligence_service import (
@@ -92,6 +93,20 @@ def upload_resume(user_id: str | None, upload: FileStorage | None) -> Resume:
     except Exception as error:  # A valid upload remains available if Gemini is unavailable.
         fail_intelligence(intelligence, error)
     db.session.commit()
+    db.session.add(DashboardActivity(
+        user_id=user_id,
+        event_type="resume_upload",
+        title="Resume uploaded",
+        description=f"Stored a new resume file for analysis: {original_filename}.",
+        payload={"resume_id": resume.id, "filename": original_filename},
+    ))
+    db.session.commit()
+    if intelligence.status == "complete":
+        try:
+            from services.rag_service import index_resume
+            index_resume(resume)
+        except Exception:
+            logger.warning("Unable to index resume_id=%s for RAG", resume.id, exc_info=True)
     return resume
 
 

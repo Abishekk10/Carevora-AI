@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from config import Settings
 from database import db
+from models.dashboard import DashboardActivity, DashboardMatchHistory, DashboardRecommendedJob
 from models.job_listing import JobListing
 from models.resume import Resume
 from services.errors import APIError, NotFoundError
@@ -74,6 +75,36 @@ def _generate_match(resume_data: dict, job_data: dict) -> ResumeMatchResult:
         raise RuntimeError("Gemini returned an invalid match analysis.") from error
 
 
+def _persist_match_history(user_id: str, resume_id: str, job_id: str, match: dict) -> None:
+    """Persist a completed AI match and a corresponding timeline event."""
+    history = DashboardMatchHistory(
+        user_id=user_id,
+        resume_id=resume_id,
+        job_id=job_id,
+        match_score=match.get("match_score", 0),
+        strengths=match.get("strengths", []),
+        missing_skills=match.get("missing_skills", []),
+        recommendations=match.get("recommendations", []),
+        learning_roadmap=match.get("learning_roadmap", []),
+    )
+    recommendation = DashboardRecommendedJob(
+        user_id=user_id,
+        job_id=job_id,
+        recommendation_score=match.get("match_score", 0),
+        reason=(match.get("recommendations") or ["Strong role fit"])[0],
+    )
+    db.session.add(history)
+    db.session.add(recommendation)
+    db.session.add(DashboardActivity(
+        user_id=user_id,
+        event_type="resume_match",
+        title="Resume match completed",
+        description=f"Generated a new AI match between your resume and job {job_id}.",
+        payload={"resume_id": resume_id, "job_id": job_id, "match_score": match.get("match_score", 0)},
+    ))
+    db.session.commit()
+
+
 def match_resume_to_job(resume_id: str, job_id: str) -> dict:
     """Build a validated match result for an existing resume and selected job."""
     intelligence = _get_resume_intelligence(resume_id)
@@ -83,7 +114,16 @@ def match_resume_to_job(resume_id: str, job_id: str) -> dict:
     resume_data.pop("error_message", None)
     resume_data.pop("extracted_at", None)
     try:
-        return _generate_match(resume_data, job.to_match_dict()).model_dump()
+        match = _generate_match(resume_data, job.to_match_dict()).model_dump()
+        resume = db.session.get(Resume, resume_id)
+        if resume is not None:
+            _persist_match_history(resume.user_id, resume_id, job_id, match)
+            try:
+                from services.rag_service import index_match
+                index_match(resume, job, match)
+            except Exception:
+                logger.warning("Unable to index match for RAG resume_id=%s job_id=%s", resume_id, job_id, exc_info=True)
+        return match
     except (httpx.TimeoutException, TimeoutError) as error:
         logger.warning("Gemini timed out while matching resume_id=%s job_id=%s", resume_id, job_id)
         raise APIError("Resume matching timed out. Please try again.", 504) from error

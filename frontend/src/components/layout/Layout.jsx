@@ -7,9 +7,14 @@ import Sidebar from "./Sidebar";
 export default function Layout() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} onOpen={() => setSidebarOpen(true)} />
-      <div className="lg:pl-72"><Navbar /><main className="mx-auto max-w-7xl p-5 pt-8 sm:p-8"><Outlet /></main></div>
+      <div className="lg:pl-72">
+        <Navbar />
+        <main className="mx-auto max-w-7xl p-5 pt-8 sm:p-8">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

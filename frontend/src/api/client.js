@@ -3,7 +3,8 @@ import axios from "axios";
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "",
   headers: { "Content-Type": "application/json" },
-  timeout: 20_000
+  timeout: 20_000,
+  withCredentials: true
 });
 
 apiClient.interceptors.response.use(
@@ -42,5 +43,41 @@ export const jobsApi = {
 };
 
 export const chatApi = {
-  send: async (message) => (await apiClient.post("/api/chat", { message })).data.response
+  send: async (message) => (await apiClient.post("/api/chat", { message })).data.response,
+  rag: async (question, userId) => (await apiClient.post("/api/chat/rag", { question, user_id: userId }, { timeout: 90_000 })).data
+};
+
+export const dashboardApi = {
+  get: async () => (await apiClient.get("/api/dashboard")).data
+};
+
+export const authApi = {
+  register: async (payload) =>
+    (await apiClient.post("/api/auth/register", payload)).data.user,
+
+  login: async (payload) =>
+    (await apiClient.post("/api/auth/login", payload)).data.user,
+
+  logout: async () =>
+    (await apiClient.post("/api/auth/logout")).data,
+
+  me: async () =>
+    (await apiClient.get("/api/auth/me")).data.user
+};
+
+export const interviewApi = {
+  getHistory: async () => (await apiClient.get("/api/interview/history")).data.sessions,
+  startSession: async (payload) => (await apiClient.post("/api/interview/start", payload, { timeout: 90_000 })).data,
+  submitAnswer: async (payload) => (await apiClient.post("/api/interview/answer", payload, { timeout: 95_000 })).data,
+  getSessionDetails: async (sessionId) => (await apiClient.get(`/api/interview/session/${sessionId}`)).data,
+  getLatestScore: async () => (await apiClient.get("/api/interview/latest")).data,
+  checkResume: async () => (await apiClient.get("/api/interview/check-resume")).data,
+};
+
+export const applicationsApi = {
+  getAll: async () => (await apiClient.get("/api/applications")).data.applications,
+  create: async (payload) => (await apiClient.post("/api/applications", payload)).data.application,
+  update: async (appId, payload) => (await apiClient.patch(`/api/applications/${appId}`, payload)).data.application,
+  delete: async (appId) => await apiClient.delete(`/api/applications/${appId}`),
+  getStats: async () => (await apiClient.get("/api/applications/stats")).data,
 };

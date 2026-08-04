@@ -10,7 +10,7 @@ from werkzeug.exceptions import HTTPException
 
 from config import PROJECT_ROOT, Settings
 from database import db
-from routes import chat_bp, jobs_bp, resumes_bp, users_bp
+from routes import auth_bp, chat_bp, dashboard_bp, jobs_bp, resumes_bp, users_bp, interview_bp, application_bp
 from services.errors import APIError
 
 
@@ -78,7 +78,9 @@ def create_app(test_config: dict | None = None) -> Flask:
         app,
         resources={r"/*": {"origins": [
             "http://localhost:5173",
-            "http://127.0.0.1:5173"
+            "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174"
         ]}},
         supports_credentials=True,
     )
@@ -103,11 +105,15 @@ def create_app(test_config: dict | None = None) -> Flask:
     configure_logging(app)
 
     db.init_app(app)
+    app.register_blueprint(auth_bp)
 
     app.register_blueprint(users_bp)
     app.register_blueprint(resumes_bp)
     app.register_blueprint(jobs_bp)
     app.register_blueprint(chat_bp)
+    app.register_blueprint(dashboard_bp)
+    app.register_blueprint(interview_bp)
+    app.register_blueprint(application_bp)
 
     register_error_handlers(app)
 

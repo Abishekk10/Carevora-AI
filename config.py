@@ -21,6 +21,10 @@ class Settings:
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+    CHROMA_PERSIST_DIRECTORY = Path(
+        os.getenv("CHROMA_PERSIST_DIRECTORY", PROJECT_ROOT / "chroma_data")
+    ).resolve()
+    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
     ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID")
     ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY")
 

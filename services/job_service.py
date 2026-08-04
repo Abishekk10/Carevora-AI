@@ -32,13 +32,20 @@ def search_available_jobs(payload: object) -> list[dict]:
 def _cache_jobs(jobs: list[dict]) -> None:
     """Persist provider results so a later match request can resolve its job ID."""
     try:
+        cached_jobs: list[JobListing] = []
         for job_data in jobs:
             job = db.session.get(JobListing, job_data["id"])
             if job is None:
                 job = JobListing(id=job_data["id"])
                 db.session.add(job)
             job.update_from_dict(job_data)
+            cached_jobs.append(job)
         db.session.commit()
+        try:
+            from services.rag_service import index_jobs
+            index_jobs(cached_jobs)
+        except Exception:
+            logger.warning("Unable to index cached jobs for RAG", exc_info=True)
     except Exception:
         db.session.rollback()
         logger.exception("Unable to cache job search results")
