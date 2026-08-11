@@ -52,7 +52,9 @@ export const resumesApi = {
 };
 
 export const jobsApi = {
-  search: async (payload) => (await apiClient.post("/api/jobs/search", payload)).data,
+  // Live provider lookups can legitimately take up to a minute on the first
+  // search while the provider and the embedding model initialize.
+  search: async (payload) => (await apiClient.post("/api/jobs/search", payload, { timeout: 60_000 })).data,
   match: async (resumeId, jobId) => (await apiClient.post("/api/jobs/match", { resume_id: resumeId, job_id: jobId }, { timeout: 90_000 })).data.match
 };
 

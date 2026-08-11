@@ -31,8 +31,10 @@ export function UserProvider({ children }) {
     setUserState(nextUser);
     if (nextUser === null) {
       setTokenState(null);
+      localStorage.removeItem(TOKEN_KEY);
     } else if (nextToken !== undefined) {
       setTokenState(nextToken);
+      localStorage.setItem(TOKEN_KEY, nextToken);
     }
   };
 

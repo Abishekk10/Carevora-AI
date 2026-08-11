@@ -20,7 +20,7 @@ export default function JobSearch() {
     if (!form.query.trim()) return;
     setLoading(true); setError("");
     try { const response = await jobsApi.search({ ...form, query: form.query.trim(), location: form.location.trim() }); setJobs(response.jobs); setHasSearched(true); }
-    catch (requestError) { setError(requestError.message); setJobs([]); setHasSearched(true); }
+    catch (requestError) { setError(/timeout|exceeded/i.test(requestError.message) ? "Search timed out. The job provider is slow right now — please try again in a moment." : requestError.message); setJobs([]); setHasSearched(true); }
     finally { setLoading(false); }
   };
 
@@ -118,7 +118,7 @@ export default function JobSearch() {
       )}
 
       {isLoading ? (
-        <Loader label="Searching live job listings" />
+        <Loader label={hasSearched ? "Searching live job listings" : "Searching live job listings — the first search may take up to a minute while services warm up"} />
       ) : (
         <div className="mt-6 space-y-4">
           {jobs.map((job) => (

@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, Sequence
@@ -155,13 +156,20 @@ class RAGService:
 
 
 _rag_service: RAGService | None = None
+_rag_service_lock = threading.Lock()
 
 
 def get_rag_service() -> RAGService:
-    """Create the process-local service once while retaining injectable adapters for tests."""
+    """Create the process-local service once while retaining injectable adapters for tests.
+
+    Guarded by a lock so concurrent first loads (e.g. background indexing plus a
+    chat RAG request) reuse a single embedding model instead of loading it twice.
+    """
     global _rag_service
     if _rag_service is None:
-        _rag_service = RAGService(ChromaCollection(Settings.CHROMA_PERSIST_DIRECTORY, COLLECTION_NAME), SentenceTransformerEmbedder(Settings.EMBEDDING_MODEL))
+        with _rag_service_lock:
+            if _rag_service is None:
+                _rag_service = RAGService(ChromaCollection(Settings.CHROMA_PERSIST_DIRECTORY, COLLECTION_NAME), SentenceTransformerEmbedder(Settings.EMBEDDING_MODEL))
     return _rag_service
 
 
