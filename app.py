@@ -81,6 +81,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         app,
         resources={r"/*": {"origins": [
             "https://carevora-app.vercel.app",
+            "https://carevora-coyekgt4q-abishekk10s-projects.vercel.app",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
             "http://localhost:5174",
