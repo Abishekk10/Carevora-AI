@@ -1,6 +1,10 @@
 """Gemini chat business logic."""
 
-from llm import ask_gemini
+from collections.abc import Iterator
+
+from google.genai import errors as genai_errors
+
+from llm import ask_gemini, stream_gemini
 from database import db
 from models.dashboard import DashboardActivity, DashboardChatHistory
 from services.auth_service import get_current_user
@@ -34,6 +38,13 @@ def _persist_chat_history(question: str, answer: str, sources: list[dict] | None
     db.session.commit()
 
 
+def _provider_error_to_api_error(error: Exception) -> APIError:
+    """Map a Gemini provider error to a user-friendly API error."""
+    if isinstance(error, genai_errors.ClientError) and getattr(error, "code", None) == 429:
+        return APIError("Gemini API quota exceeded. Please try again later.", 429)
+    return APIError("The AI service is temporarily unavailable.", 502)
+
+
 def send_chat_message(payload: object) -> str:
     """Validate and send a user message to the configured Gemini model."""
     data = validate_payload(ChatRequest, payload)
@@ -43,6 +54,8 @@ def send_chat_message(payload: object) -> str:
         return answer
     except ValueError as error:
         raise APIError(str(error), 503) from error
+    except genai_errors.ClientError as error:
+        raise _provider_error_to_api_error(error) from error
     except Exception as error:
         raise APIError("The AI service is temporarily unavailable.", 502) from error
 
@@ -50,6 +63,21 @@ def send_chat_message(payload: object) -> str:
 def send_rag_chat_message(payload: object) -> dict:
     """Answer a question with relevant, user-scoped JobPilot knowledge."""
     data = validate_payload(RAGChatRequest, payload)
+    prompt, sources = _prepare_rag_prompt(data)
+    try:
+        answer = ask_gemini(prompt)
+    except ValueError as error:
+        raise APIError(str(error), 503) from error
+    except genai_errors.ClientError as error:
+        raise _provider_error_to_api_error(error) from error
+    except Exception as error:
+        raise APIError("The AI service is temporarily unavailable.", 502) from error
+    _persist_chat_history(data.question, answer, sources=sources, kind="rag")
+    return {"answer": answer, "sources": sources}
+
+
+def _prepare_rag_prompt(data: RAGChatRequest) -> tuple[str, list[dict]]:
+    """Validate access, retrieve knowledge, and build the RAG prompt with sources."""
     get_user(data.user_id)
     try:
         ensure_user_indexed(data.user_id)
@@ -69,12 +97,25 @@ def send_rag_chat_message(payload: object) -> dict:
         "helpful, concise answer.\n\n"
         f"KNOWLEDGE:\n{context_text}\n\nQUESTION:\n{data.question}"
     )
+    sources = [item.to_source() for item in context]
+    return prompt, sources
+
+
+def stream_rag_chat_message(payload: object) -> Iterator[str]:
+    """Yield RAG-grounded answer deltas, persisting the finished interaction."""
+    data = validate_payload(RAGChatRequest, payload)
+    prompt, sources = _prepare_rag_prompt(data)
+    answer_parts: list[str] = []
     try:
-        answer = ask_gemini(prompt)
+        for delta in stream_gemini(prompt):
+            answer_parts.append(delta)
+            yield delta
     except ValueError as error:
         raise APIError(str(error), 503) from error
+    except genai_errors.ClientError as error:
+        raise _provider_error_to_api_error(error) from error
     except Exception as error:
         raise APIError("The AI service is temporarily unavailable.", 502) from error
-    sources = [item.to_source() for item in context]
-    _persist_chat_history(data.question, answer, sources=sources, kind="rag")
-    return {"answer": answer, "sources": sources}
+    answer = "".join(answer_parts)
+    if answer:
+        _persist_chat_history(data.question, answer, sources=sources, kind="rag")

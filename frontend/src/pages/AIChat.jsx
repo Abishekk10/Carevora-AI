@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowUp, Bot, Sparkles } from "lucide-react";
+import { AlertCircle, ArrowUp, Bot, Sparkles, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { chatApi } from "../api/client";
@@ -16,44 +16,83 @@ export default function AIChat() {
 
   const [messages, setMessages] = useState([initialMessage]);
   const [draft, setDraft] = useState("");
-  const [isSending, setSending] = useState(false);
+  const [isStreaming, setStreaming] = useState(false);
   const [error, setError] = useState("");
 
   const endRef = useRef(null);
+  const abortRef = useRef(null);
+  const partialTextRef = useRef("");
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isSending]);
+  }, [messages, isStreaming]);
+
+  const patchLastAssistant = (patch) => {
+    setMessages((current) => {
+      const next = [...current];
+      for (let index = next.length - 1; index >= 0; index -= 1) {
+        if (next[index].role === "assistant") {
+          next[index] = { ...next[index], ...patch };
+          break;
+        }
+      }
+      return next;
+    });
+  };
 
   const send = async (event) => {
     event.preventDefault();
 
     const content = draft.trim();
 
-    if (!content || isSending) return;
+    if (!content || isStreaming) return;
 
     setMessages((current) => [...current, { role: "user", content }]);
     setDraft("");
-    setSending(true);
     setError("");
+    setMessages((current) => [...current, { role: "assistant", content: "" }]);
+    partialTextRef.current = "";
+    setStreaming(true);
 
     try {
-      const response = user?.id
-        ? await chatApi.rag(content, user.id)
-        : await chatApi.send(content);
+      if (!user?.id) {
+        const answer = await chatApi.send(content);
+        patchLastAssistant({ content: answer });
+        return;
+      }
 
-      const answer =
-        typeof response === "string" ? response : response.answer;
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-      setMessages((current) => [
-        ...current,
-        { role: "assistant", content: answer },
-      ]);
+      await chatApi.stream(content, user.id, {
+        signal: controller.signal,
+        onChunk: (delta) => {
+          partialTextRef.current += delta;
+          patchLastAssistant((current) => ({
+            content: current.content + delta,
+          }));
+        },
+      });
     } catch (requestError) {
-      setError(requestError.message);
+      if (requestError.name === "AbortError") {
+        patchLastAssistant({
+          content: partialTextRef.current
+            ? `${partialTextRef.current}\n\n_(stopped)_`
+            : "_(stopped)_",
+        });
+      } else if (!partialTextRef.current) {
+        patchLastAssistant({ content: `⚠️ ${requestError.message}` });
+      } else {
+        setError(requestError.message);
+      }
     } finally {
-      setSending(false);
+      abortRef.current = null;
+      setStreaming(false);
     }
+  };
+
+  const stop = () => {
+    abortRef.current?.abort();
   };
 
   return (
@@ -78,8 +117,8 @@ export default function AIChat() {
               Carevora AI
             </h2>
 
-            <p className="text-xs text-emerald-300">
-              🟢 Online • Ready to assist
+            <p className={`text-xs ${isStreaming ? "text-amber-300" : "text-emerald-300"}`}>
+              {isStreaming ? "🟡 Generating answer…" : "🟢 Online • Ready to assist"}
             </p>
           </div>
 
@@ -93,15 +132,6 @@ export default function AIChat() {
               message={message}
             />
           ))}
-
-          {isSending && (
-            <ChatMessage
-              message={{
-                role: "assistant",
-                content: "Thinking through your request…",
-              }}
-            />
-          )}
 
           {error && (
             <div className="flex gap-2 rounded-xl border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-200">
@@ -131,17 +161,31 @@ export default function AIChat() {
               aria-label="Chat message"
             />
 
-            <button
-              className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-700 disabled:opacity-50"
-              disabled={!draft.trim() || isSending}
-              aria-label="Send message"
-            >
-              <ArrowUp className="h-5 w-5" />
-            </button>
+            {isStreaming ? (
+              <button
+                type="button"
+                className="grid h-10 w-10 place-items-center rounded-xl bg-slate-700 text-white transition hover:bg-slate-600"
+                onClick={stop}
+                aria-label="Stop generating"
+                title="Stop generating"
+              >
+                <Square className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                disabled={!draft.trim() || isStreaming}
+                aria-label="Send message"
+              >
+                <ArrowUp className="h-5 w-5" />
+              </button>
+            )}
           </div>
 
           <p className="mt-2 px-2 text-xs text-slate-400">
-            Press Enter to send • Shift + Enter for a new line
+            {isStreaming
+              ? "Streaming your answer — press stop to interrupt"
+              : "Press Enter to send • Shift + Enter for a new line"}
           </p>
         </form>
       </div>

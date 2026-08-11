@@ -21,11 +21,26 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+function extractErrorMessage(error) {
+  const data = error?.response?.data;
+  if (data && typeof data === "object" && data.error != null) {
+    const err = data.error;
+    if (typeof err === "string") return err;
+    const nested = err?.message || err?.msg || err?.detail || err?.description;
+    if (typeof nested === "string" && nested) return nested;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      // fall through to the default message below
+    }
+  }
+  return error?.message || "Something went wrong.";
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error.response?.data?.error || error.message || "Something went wrong.";
-    return Promise.reject(new Error(message));
+    return Promise.reject(new Error(extractErrorMessage(error)));
   }
 );
 
@@ -60,7 +75,116 @@ export const jobsApi = {
 
 export const chatApi = {
   send: async (message) => (await apiClient.post("/api/chat", { message })).data.response,
-  rag: async (question, userId) => (await apiClient.post("/api/chat/rag", { question, user_id: userId }, { timeout: 90_000 })).data
+  rag: async (question, userId) => (await apiClient.post("/api/chat/rag", { question, user_id: userId }, { timeout: 90_000 })).data,
+  // Streams a RAG-grounded answer via Server-Sent Events. Resolves when the
+  // stream finishes; rejects with Error("Aborted") if the caller aborts.
+  stream: (question, userId, { signal, onChunk } = {}) => {
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    const baseURL = import.meta.env.VITE_API_BASE_URL || "";
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+
+    if (signal) {
+      if (signal.aborted) controller.abort();
+      else signal.addEventListener("abort", abort, { once: true });
+    }
+
+    return fetch(`${baseURL}/api/chat/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: "include",
+      body: JSON.stringify({ question, user_id: userId }),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          let message = "Something went wrong.";
+          try {
+            const data = await response.json();
+            if (data?.error != null) {
+              message =
+                typeof data.error === "string" ? data.error : JSON.stringify(data.error);
+            }
+          } catch {
+            // fall back to the generic message
+          }
+          throw new Error(message);
+        }
+        if (!response.body) {
+          throw new Error("This browser does not support streaming responses.");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        const finish = () => {
+          signal?.removeEventListener("abort", abort);
+        };
+
+        const consume = (resolve, reject) => {
+          reader.read().then(
+            ({ done, value }) => {
+              if (done) {
+                finish();
+                resolve();
+                return;
+              }
+              buffer += decoder.decode(value, { stream: true });
+              const events = buffer.split("\n\n");
+              buffer = events.pop();
+              for (const event of events) {
+                const dataLine = event
+                  .split("\n")
+                  .find((line) => line.startsWith("data:"));
+                if (!dataLine) continue;
+                let payload;
+                try {
+                  payload = JSON.parse(dataLine.slice(5));
+                } catch {
+                  continue;
+                }
+                if (payload.error) {
+                  finish();
+                  reader.cancel();
+                  reject(new Error(payload.error));
+                  return;
+                }
+                if (typeof payload.text === "string") onChunk?.(payload.text);
+                if (payload.done) {
+                  finish();
+                  reader.cancel();
+                  resolve();
+                  return;
+                }
+              }
+              consume(resolve, reject);
+            },
+            (readError) => {
+              if (readError?.name === "AbortError") {
+                finish();
+                reject(new DOMException("Aborted", "AbortError"));
+              } else {
+                finish();
+                reject(readError);
+              }
+            }
+          );
+        };
+
+        return new Promise((resolve, reject) => consume(resolve, reject));
+      })
+      .catch((error) => {
+        signal?.removeEventListener("abort", abort);
+        if (error?.name === "AbortError") {
+          throw new DOMException("Aborted", "AbortError");
+        }
+        throw error;
+      });
+  },
 };
 
 export const dashboardApi = {

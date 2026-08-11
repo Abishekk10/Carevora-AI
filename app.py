@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -131,6 +132,8 @@ def create_app(test_config: dict | None = None) -> Flask:
     with app.app_context():
         db.create_all()
 
+    _start_rag_warmup(app)
+
     @app.get("/")
     def home():
         return jsonify(
@@ -145,6 +148,21 @@ def create_app(test_config: dict | None = None) -> Flask:
         return jsonify(status="ok")
 
     return app
+
+
+def _start_rag_warmup(app: Flask) -> None:
+    """Warm the RAG index in the background so first chat turns stay responsive.
+
+    Runs in a daemon thread so a slow embedding-model load never blocks startup;
+    failures are logged by backfill_index and degrade gracefully to plain chat.
+    """
+    from services.rag_service import backfill_index
+
+    def _warm() -> None:
+        with app.app_context():
+            backfill_index()
+
+    threading.Thread(target=_warm, name="rag-warmup", daemon=True).start()
 
 
 app = create_app()

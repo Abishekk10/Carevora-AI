@@ -22,6 +22,7 @@ class Settings:
     TOKEN_TTL_DAYS = int(os.getenv("TOKEN_TTL_DAYS", "30"))
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+    GEMINI_TIMEOUT_SECONDS = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "120"))
     CHROMA_PERSIST_DIRECTORY = Path(
         os.getenv("CHROMA_PERSIST_DIRECTORY", PROJECT_ROOT / "chroma_data")
     ).resolve()

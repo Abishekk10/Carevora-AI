@@ -11,7 +11,7 @@ export default function ChatMessage({ message }) {
         </span>
       )}
       <div className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-6 sm:max-w-[70%] ${isAssistant ? "rounded-tl-sm bg-slate-800 text-slate-100 ring-1 ring-white/10" : "rounded-tr-sm bg-indigo-500 text-white"}`}>
-        {message.content}
+        {message.content || (isAssistant ? "…" : "")}
       </div>
       {!isAssistant && (
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-700 text-slate-100">

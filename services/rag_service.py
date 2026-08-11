@@ -157,6 +157,30 @@ class RAGService:
 
 _rag_service: RAGService | None = None
 _rag_service_lock = threading.Lock()
+_indexed_user_ids: set[str] = set()
+_indexed_user_ids_lock = threading.Lock()
+_jobs_indexed = False
+_jobs_indexed_lock = threading.Lock()
+
+
+def is_rag_ready() -> bool:
+    """Return whether RAG dependencies are importable without loading models."""
+    try:
+        import chromadb  # noqa: F401
+        import sentence_transformers  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def _index_jobs_once(service: RAGService) -> None:
+    """Backfill cached job descriptions exactly once per process."""
+    global _jobs_indexed
+    with _jobs_indexed_lock:
+        if _jobs_indexed:
+            return
+        service.index_jobs(db.session.execute(db.select(JobListing)).scalars().all())
+        _jobs_indexed = True
 
 
 def get_rag_service() -> RAGService:
@@ -190,11 +214,44 @@ def retrieve_context(question: str, user_id: str) -> list[RetrievedContext]:
 
 
 def ensure_user_indexed(user_id: str) -> None:
-    """Backfill persisted resume and cached job records for an existing user on demand."""
+    """Backfill persisted resume and cached job records for an existing user on demand.
+
+    Indexing is performed only once per user per process; repeat calls are cheap
+    no-ops so consecutive chat turns stay fast.
+    """
+    if not is_rag_ready():
+        raise RuntimeError("Knowledge retrieval is not available.")
+
+    with _indexed_user_ids_lock:
+        if user_id in _indexed_user_ids:
+            return
+
     service = get_rag_service()
     for resume in db.session.execute(db.select(Resume).where(Resume.user_id == user_id)).scalars():
         try:
             service.index_resume(resume)
         except Exception:
             logger.warning("Unable to index resume_id=%s for RAG", resume.id, exc_info=True)
-    service.index_jobs(db.session.execute(db.select(JobListing)).scalars().all())
+
+    with _indexed_user_ids_lock:
+        _indexed_user_ids.add(user_id)
+    _index_jobs_once(service)
+
+
+def backfill_index() -> None:
+    """Best-effort startup warm-up so the first chat turns do not block on indexing."""
+    if not is_rag_ready():
+        logger.info("RAG dependencies unavailable; skipping background index backfill.")
+        return
+    try:
+        service = get_rag_service()
+    except RuntimeError as error:
+        logger.warning("RAG index backfill skipped: %s", error)
+        return
+    user_ids = {user_id for (user_id,) in db.session.execute(db.select(Resume.user_id)).all()}
+    for user_id in user_ids:
+        ensure_user_indexed(user_id)
+    try:
+        _index_jobs_once(service)
+    except Exception:
+        logger.exception("RAG job index backfill failed")
