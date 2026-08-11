@@ -1,10 +1,9 @@
 """Gemini chat business logic."""
 
-from flask import session
-
 from llm import ask_gemini
 from database import db
 from models.dashboard import DashboardActivity, DashboardChatHistory
+from services.auth_service import get_current_user
 from services.errors import APIError
 from services.rag_service import ensure_user_indexed, retrieve_context
 from services.user_service import get_user
@@ -13,7 +12,8 @@ from services.validation import ChatRequest, RAGChatRequest, validate_payload
 
 def _persist_chat_history(question: str, answer: str, sources: list[dict] | None = None, kind: str = "chat") -> None:
     """Persist a chat interaction for the live dashboard history widget."""
-    user_id = session.get("user_id")
+    current_user = get_current_user()
+    user_id = current_user.id if current_user else None
     if not user_id:
         return
     entry = DashboardChatHistory(

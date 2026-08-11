@@ -3,7 +3,6 @@
 from collections.abc import Sequence
 from statistics import mean
 
-from flask import session
 from sqlalchemy import select
 
 from database import db
@@ -113,7 +112,7 @@ def _serialize_recommendations(user_id: str) -> list[dict]:
 
 def get_dashboard_payload(user_id: str | None = None) -> dict:
     """Return a single dashboard payload for the current authenticated user."""
-    auth_user_id = user_id or session.get("user_id")
+    auth_user_id = user_id
     if not auth_user_id:
         raise APIError("Authentication required to view the dashboard.", 401)
 

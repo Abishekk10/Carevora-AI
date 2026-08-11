@@ -34,22 +34,22 @@ export default function AuthPage({ mode = "signin" }) {
     setLoading(true);
 
     try {
-      let user;
+      let result;
 
       if (isSignUp) {
-        user = await authApi.register({
+        result = await authApi.register({
           full_name: form.full_name,
           email: form.email,
           password: form.password,
         });
       } else {
-        user = await authApi.login({
+        result = await authApi.login({
           email: form.email,
           password: form.password,
         });
       }
 
-      setUser(user);
+      setUser(result.user, result.token);
 
       navigate("/dashboard");
     } catch (err) {

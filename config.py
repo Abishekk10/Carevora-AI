@@ -19,6 +19,7 @@ class Settings:
     UPLOAD_FOLDER = Path(os.getenv("UPLOAD_FOLDER", PROJECT_ROOT / "uploads")).resolve()
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", 10 * 1024 * 1024))
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+    TOKEN_TTL_DAYS = int(os.getenv("TOKEN_TTL_DAYS", "30"))
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     CHROMA_PERSIST_DIRECTORY = Path(

@@ -1,11 +1,25 @@
 import axios from "axios";
 
+const TOKEN_STORAGE_KEY = "jobpilot-auth-token";
+
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "",
   headers: { "Content-Type": "application/json" },
   timeout: 20_000,
   withCredentials: true
 });
+
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 apiClient.interceptors.response.use(
   (response) => response,
@@ -53,10 +67,10 @@ export const dashboardApi = {
 
 export const authApi = {
   register: async (payload) =>
-    (await apiClient.post("/api/auth/register", payload)).data.user,
+    (await apiClient.post("/api/auth/register", payload)).data,
 
   login: async (payload) =>
-    (await apiClient.post("/api/auth/login", payload)).data.user,
+    (await apiClient.post("/api/auth/login", payload)).data,
 
   logout: async () =>
     (await apiClient.post("/api/auth/logout")).data,
