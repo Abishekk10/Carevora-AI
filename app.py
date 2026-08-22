@@ -14,6 +14,7 @@ from werkzeug.exceptions import HTTPException
 from config import PROJECT_ROOT, Settings
 from database import db
 from routes import auth_bp, chat_bp, dashboard_bp, jobs_bp, resumes_bp, users_bp, interview_bp, application_bp
+from routes.career_gap import career_gap_bp
 from services.errors import APIError
 
 
@@ -127,6 +128,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(interview_bp)
     app.register_blueprint(application_bp)
+    app.register_blueprint(career_gap_bp)
 
     register_error_handlers(app)
 

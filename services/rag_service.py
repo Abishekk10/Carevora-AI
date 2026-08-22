@@ -139,11 +139,18 @@ class RAGService:
         """Index a generated match report under its resume owner's access scope."""
         self._index(source_type="match_analysis", source_id=f"{resume.id}:{job.id}", source_name=f"Match: {job.title} at {job.company}", user_id=resume.user_id, text=json.dumps(match, ensure_ascii=False))
 
-    def retrieve_context(self, question: str, user_id: str, limit: int = 6) -> list[RetrievedContext]:
-        """Return the closest user-safe resume/match chunks and shared job chunks."""
+    def retrieve_context(
+        self, question: str, user_id: str, limit: int = 6, mode: str = "user_only"
+    ) -> list[RetrievedContext]:
+        """Return the closest user-safe chunks, optionally including shared job chunks."""
         embedding = self._embedder.encode([question])
         results: list[RetrievedContext] = []
-        for where in ({"user_id": user_id}, {"source_type": "job_description"}):
+        queries: list[dict] = []
+        if mode in ("user_only", "jobs_and_user"):
+            queries.append({"user_id": user_id})
+        if mode in ("jobs_only", "jobs_and_user"):
+            queries.append({"source_type": "job_description"})
+        for where in queries:
             response = self._collection.query(query_embeddings=embedding, n_results=limit, where=where)
             documents = (response.get("documents") or [[]])[0]
             metadatas = (response.get("metadatas") or [[]])[0]
@@ -151,6 +158,8 @@ class RAGService:
             for index, content in enumerate(documents):
                 metadata = metadatas[index]
                 results.append(RetrievedContext(content=content, source_type=metadata["source_type"], source_name=metadata["source_name"], source_id=metadata["source_id"], distance=distances[index] if index < len(distances) else None))
+        if mode == "user_only":
+            results = [item for item in results if item.source_type in ("resume", "resume_intelligence")]
         results.sort(key=lambda item: item.distance if item.distance is not None else float("inf"))
         return results[:limit]
 
@@ -209,8 +218,8 @@ def index_match(resume: Resume, job: JobListing, match: dict) -> None:
     get_rag_service().index_match(resume=resume, job=job, match=match)
 
 
-def retrieve_context(question: str, user_id: str) -> list[RetrievedContext]:
-    return get_rag_service().retrieve_context(question, user_id)
+def retrieve_context(question: str, user_id: str, mode: str = "user_only") -> list[RetrievedContext]:
+    return get_rag_service().retrieve_context(question, user_id, mode=mode)
 
 
 def ensure_user_indexed(user_id: str) -> None:

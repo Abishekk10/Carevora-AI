@@ -221,3 +221,7 @@ export const applicationsApi = {
   delete: async (appId) => await apiClient.delete(`/api/applications/${appId}`),
   getStats: async () => (await apiClient.get("/api/applications/stats")).data,
 };
+
+export const careerGapApi = {
+  analyze: async (payload) => (await apiClient.post("/api/career-gap/analyze", payload, { timeout: 60_000 })).data,
+};

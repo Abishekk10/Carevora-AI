@@ -50,6 +50,10 @@ class ResumeMatchRequest(RequestSchema):
     job_id: str = Field(min_length=1, max_length=255)
 
 
+class CareerGapRequest(RequestSchema):
+    target_role: str = Field(min_length=1, max_length=120)
+
+
 class RAGChatRequest(RequestSchema):
     question: str = Field(min_length=1, max_length=10_000)
     user_id: str = Field(min_length=1, max_length=36)

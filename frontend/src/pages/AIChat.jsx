@@ -68,9 +68,7 @@ export default function AIChat() {
         signal: controller.signal,
         onChunk: (delta) => {
           partialTextRef.current += delta;
-          patchLastAssistant((current) => ({
-            content: current.content + delta,
-          }));
+          patchLastAssistant({ content: partialTextRef.current });
         },
       });
     } catch (requestError) {

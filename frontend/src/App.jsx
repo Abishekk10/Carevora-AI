@@ -10,6 +10,7 @@ import LandingPage from "./pages/LandingPage";
 import Profile from "./pages/Profile";
 import ResumeUpload from "./pages/ResumeUpload";
 import Interview from "./pages/Interview";
+import CareerGap from "./pages/CareerGap";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/resume" element={<ResumeUpload />} />
         <Route path="/chat" element={<AIChat />} />
         <Route path="/interview" element={<Interview />} />
+        <Route path="/career-gap" element={<CareerGap />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>

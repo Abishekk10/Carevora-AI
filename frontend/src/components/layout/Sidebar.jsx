@@ -1,4 +1,4 @@
-import { Bot, BriefcaseBusiness, FileUp, LayoutDashboard, Menu, UserRound, X, GraduationCap, CheckSquare } from "lucide-react";
+import { Bot, BriefcaseBusiness, FileUp, LayoutDashboard, Menu, UserRound, X, GraduationCap, CheckSquare, ChartNoAxesCombined } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const navigation = [
@@ -7,6 +7,7 @@ const navigation = [
   ["/applications", "Applications", CheckSquare],
   ["/resume", "Resume", FileUp],
   ["/interview", "AI Interview", GraduationCap],
+  ["/career-gap", "Career Gap", ChartNoAxesCombined],
   ["/chat", "AI chat", Bot],
   ["/profile", "Profile", UserRound]
 ];
