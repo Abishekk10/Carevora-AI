@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, MapPin, Search, SlidersHorizontal } from "lucide-react";
+import { AlertCircle, BriefcaseBusiness, CheckCircle2, MapPin, Search, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 
 import { jobsApi, applicationsApi } from "../api/client";
@@ -7,7 +7,7 @@ import ResumeMatchModal from "../components/jobs/ResumeMatchModal";
 import Loader from "../components/common/Loader";
 
 export default function JobSearch() {
-  const [form, setForm] = useState({ query: "", location: "", results_per_page: 20 });
+  const [form, setForm] = useState({ query: "", location: "", experience: "Any experience", results_per_page: 20 });
   const [jobs, setJobs] = useState([]);
   const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -69,7 +69,7 @@ export default function JobSearch() {
       )}
 
       <form onSubmit={submitSearch} className="surface mt-7 p-4 sm:p-5">
-        <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr_140px_auto]">
+        <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr_170px_140px_auto]">
           <label className="relative">
             <Search className="pointer-events-none absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
             <input 
@@ -89,6 +89,24 @@ export default function JobSearch() {
               placeholder="Location (optional)" 
               aria-label="Location" 
             />
+          </label>
+          <label className="relative">
+            <BriefcaseBusiness className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+            <select
+              className="field pl-9"
+              value={form.experience}
+              onChange={(event) => setForm({ ...form, experience: event.target.value })}
+              aria-label="Experience"
+            >
+              <option>Any experience</option>
+              <option>0-1 years</option>
+              <option>0-2 years</option>
+              <option>1-3 years</option>
+              <option>2-5 years</option>
+              <option>3-5 years</option>
+              <option>5-8 years</option>
+              <option>8+ years</option>
+            </select>
           </label>
           <label className="relative">
             <SlidersHorizontal className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-slate-400" />

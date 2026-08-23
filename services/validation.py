@@ -37,6 +37,7 @@ class UpdateUserRequest(RequestSchema):
 class JobSearchRequest(RequestSchema):
     query: str = Field(min_length=1, max_length=200)
     location: str = Field(default="", max_length=200)
+    experience: str = Field(default="Any experience", max_length=64)
     page: int = Field(default=1, ge=1, le=100)
     results_per_page: int = Field(default=20, ge=1, le=50)
 

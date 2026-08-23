@@ -63,14 +63,15 @@ export default function CareerGap() {
 
   const zeroJobs = result && result.jobs_analyzed === 0;
   const showPercents = result && result.jobs_analyzed >= 5;
+  const providerUnavailable = result?.provider_unavailable;
 
   return (
     <section className="animate-fade-up">
       <div>
         <h1 className="page-title">Career Intelligence</h1>
         <p className="page-subtitle">
-          Compare your parsed resume against Carevora&apos;s cached jobs for a target role. Demand
-          percentages come only from those listings — not invented market stats.
+          Compare your parsed resume against relevant job listings for any target role. Demand
+          percentages come only from available listings — not invented market stats.
         </p>
       </div>
 
@@ -133,7 +134,7 @@ export default function CareerGap() {
       )}
 
       {isLoading ? (
-        <Loader label="Analyzing cached jobs for this role" />
+        <Loader label="Finding and analyzing jobs for this role" />
       ) : result ? (
         <div className="mt-6 space-y-6">
           <div className="surface flex flex-wrap items-center justify-between gap-3 p-5">
@@ -143,13 +144,15 @@ export default function CareerGap() {
             </div>
             <div className="flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1.5 text-sm text-slate-200">
               <Gauge className="h-4 w-4 text-indigo-300" />
-              {result.jobs_analyzed} cached job{result.jobs_analyzed === 1 ? "" : "s"} analyzed
+              {result.jobs_analyzed} job{result.jobs_analyzed === 1 ? "" : "s"} analyzed
             </div>
           </div>
 
           {result.notice && (
             <div className={`flex items-start gap-3 rounded-xl border p-4 text-sm ${
-              !showPercents
+              providerUnavailable
+                ? "border-rose-400/30 bg-rose-500/10 text-rose-100"
+                : !showPercents
                 ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
                 : "border-white/10 bg-slate-900/60 text-slate-300"
             }`}
@@ -157,10 +160,10 @@ export default function CareerGap() {
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
                 <p>{result.notice}</p>
-                {!showPercents && (
+                {!showPercents && !providerUnavailable && (
                   <Link to="/jobs" className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-200 underline">
                     <Search className="h-3.5 w-3.5" />
-                    Search jobs for this role
+                    Search more jobs for this role
                   </Link>
                 )}
               </div>

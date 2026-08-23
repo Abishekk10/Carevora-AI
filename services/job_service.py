@@ -9,6 +9,7 @@ from tools.job_search import search_jobs
 from database import db
 from models.job_listing import JobListing
 from services.errors import APIError
+from services.experience_filter import job_matches_experience, parse_requested_experience
 from services.validation import JobSearchRequest, validate_payload
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,10 @@ logger = logging.getLogger(__name__)
 def search_available_jobs(payload: object) -> list[dict]:
     """Validate search options and serialize provider results for the API."""
     data = validate_payload(JobSearchRequest, payload)
+    try:
+        experience_range = parse_requested_experience(data.experience)
+    except ValueError as error:
+        raise APIError(str(error), 422) from error
     try:
         jobs = search_jobs(
             query=data.query,
@@ -28,6 +33,10 @@ def search_available_jobs(payload: object) -> list[dict]:
         logger.exception("Job provider request failed")
         raise APIError("Job search is temporarily unavailable.", 502) from error
     serialized_jobs = [job.model_dump() for job in jobs]
+    if experience_range is not None:
+        serialized_jobs = [
+            job for job in serialized_jobs if job_matches_experience(job, experience_range)
+        ]
     _cache_jobs(serialized_jobs)
     return serialized_jobs
 

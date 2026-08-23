@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections import Counter
 
@@ -11,7 +12,10 @@ from models.job_listing import JobListing
 from models.resume import Resume
 from models.resume_intelligence import ResumeIntelligence
 from services.errors import APIError
+from services.job_service import search_available_jobs
 from services.validation import CareerGapRequest, validate_payload
+
+logger = logging.getLogger(__name__)
 
 MIN_JOBS_FOR_PERCENTAGES = 5
 MAX_JOBS_ANALYZED = 100
@@ -167,8 +171,11 @@ _NOTICE_CACHED = (
     "not live market-wide statistics."
 )
 _NOTICE_ZERO = (
-    "No cached jobs matched this role. Search for this role in Job Search first "
-    "so Carevora can analyze listings."
+    "No jobs matched this role after checking cached listings and the job provider."
+)
+_NOTICE_PROVIDER_UNAVAILABLE = (
+    "Job provider is currently unavailable. We couldn't fetch fresh listings for this role. "
+    "Please try again later."
 )
 
 
@@ -382,7 +389,12 @@ def _get_complete_resume(user_id: str) -> Resume:
     return resume
 
 
-def _empty_result(target_role: str, jobs_analyzed: int, notice: str) -> dict:
+def _empty_result(
+    target_role: str,
+    jobs_analyzed: int,
+    notice: str,
+    provider_unavailable: bool = False,
+) -> dict:
     return {
         "target_role": target_role,
         "jobs_analyzed": jobs_analyzed,
@@ -390,20 +402,38 @@ def _empty_result(target_role: str, jobs_analyzed: int, notice: str) -> dict:
         "gaps": [],
         "learning_path": [],
         "notice": notice,
+        "provider_unavailable": provider_unavailable,
     }
 
 
 def analyze_career_gap(user_id: str, payload: object) -> dict:
-    """Compare resume intelligence to cached jobs for a target role."""
+    """Compare resume intelligence to cached or freshly fetched role listings."""
     data = validate_payload(CareerGapRequest, payload)
     target_role = data.target_role
     resume = _get_complete_resume(user_id)
     intelligence = resume.intelligence
     jobs = _find_relevant_jobs(target_role)
+    provider_unavailable = False
+    if len(jobs) < MIN_JOBS_FOR_PERCENTAGES:
+        try:
+            # Reuse Job Search's provider request and cache path; no separate
+            # Career Gap provider integration is introduced here.
+            search_available_jobs({
+                "query": target_role,
+                "location": "",
+                "results_per_page": 50,
+            })
+        except APIError:
+            # Cached matches can still produce a useful small-sample analysis
+            # when the live provider is temporarily unavailable.
+            logger.warning("Unable to fetch jobs for Career Gap role %r", target_role, exc_info=True)
+            provider_unavailable = True
+        jobs = _find_relevant_jobs(target_role)
     jobs_analyzed = len(jobs)
 
     if jobs_analyzed == 0:
-        return _empty_result(target_role, 0, f"{_NOTICE_ZERO} {_NOTICE_CACHED}")
+        notice = _NOTICE_PROVIDER_UNAVAILABLE if provider_unavailable else _NOTICE_ZERO
+        return _empty_result(target_role, 0, notice, provider_unavailable)
 
     listed, mentioned = _user_skill_sets(intelligence)
     counts: Counter[str] = Counter()
@@ -452,7 +482,9 @@ def analyze_career_gap(user_id: str, payload: object) -> dict:
         learning_path.append(entry)
 
     notice = _NOTICE_CACHED
-    if not demand_reliable:
+    if provider_unavailable:
+        notice = f"{_NOTICE_PROVIDER_UNAVAILABLE} Analysis uses the available cached jobs. {_NOTICE_CACHED}"
+    elif not demand_reliable:
         job_word = "job" if jobs_analyzed == 1 else "jobs"
         notice = (
             f"This analysis is based on only {jobs_analyzed} cached {job_word}, "
@@ -466,4 +498,5 @@ def analyze_career_gap(user_id: str, payload: object) -> dict:
         "gaps": gaps,
         "learning_path": learning_path,
         "notice": notice,
+        "provider_unavailable": provider_unavailable,
     }
