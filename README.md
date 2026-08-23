@@ -331,27 +331,49 @@ Carevora classifies each demanded skill as follows:
 
 The methodology is a practical comparison of resume intelligence and the listings available to the application. It does not measure broad market demand, validate proficiency, or replace a recruiter's assessment.
 
-## Screenshots
+## 📸 Screenshots
 
 ### Dashboard
 
-<!-- Add screenshot here -->
+Central Carevora AI career workspace showing resume completeness, ATS readiness, career score, matched jobs, applications, and AI career assistance.
+
+![Carevora AI Dashboard](screenshots/dashboard.png)
 
 ### Job Search
 
-<!-- Add screenshot here -->
+Search opportunities by keyword, location, and experience level, match your resume against jobs, review match insights, and add relevant opportunities to Applications.
+
+![Carevora AI Job Search](screenshots/jobsearch.png)
 
 ### Resume Intelligence
 
-<!-- Add screenshot here -->
+Parse and organize resume information including skills, experience, education, projects, and certifications.
+
+![Carevora AI Resume Intelligence](screenshots/resumeintelligence.png)
 
 ### Career Gap Analyzer
 
-<!-- Add screenshot here -->
+Analyze any target role against cached job listings to identify skill demand, resume strengths, weak and missing skills, and a recommended learning path.
+
+![Carevora AI Career Gap Analyzer](screenshots/careergapanalyzer.png)
 
 ### AI Career Copilot
 
-<!-- Add screenshot here -->
+AI-powered assistance for career questions, resume guidance, interview preparation, and learning.
+
+![Carevora AI Career Copilot](screenshots/aicareercopilot.png)
+
+### Resume–Job Matching
+
+Match a resume against a specific job, review the match score and missing skills, and use the insights before adding the opportunity to Applications.
+
+![Carevora AI Resume Job Matching](screenshots/resumejobmatching.png)
+
+### AI Interview
+
+Interactive AI-powered mock interview experience with interview practice and evaluation.
+
+![Carevora AI AI Interview](screenshots/aiinterview.png)
 
 ## Current limitations
 
