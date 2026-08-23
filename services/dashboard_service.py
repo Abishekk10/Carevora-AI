@@ -14,6 +14,7 @@ from models.dashboard import (
 )
 from models.job_listing import JobListing
 from models.resume import Resume
+from models.resume_intelligence import ResumeIntelligence
 from models.interview import InterviewSession
 from services.errors import APIError, NotFoundError
 from services.user_service import get_user
@@ -24,6 +25,30 @@ def _safe_mean(values: Sequence[int]) -> int:
     if not values:
         return 0
     return int(round(mean(values)))
+
+
+def _build_resume_completeness_score(user_id: str) -> int | None:
+    """Score the latest completed resume intelligence record by populated sections."""
+    resume = db.session.execute(
+        select(Resume)
+        .join(ResumeIntelligence)
+        .where(Resume.user_id == user_id)
+        .where(ResumeIntelligence.status == "complete")
+        .order_by(ResumeIntelligence.extracted_at.desc(), ResumeIntelligence.created_at.desc())
+    ).scalar()
+    if resume is None or resume.intelligence is None:
+        return None
+
+    intelligence = resume.intelligence
+    sections = (
+        any((intelligence.contact or {}).values()),
+        intelligence.skills,
+        intelligence.education,
+        intelligence.experience,
+        intelligence.projects,
+        intelligence.certifications,
+    )
+    return round((sum(bool(section) for section in sections) / 6) * 100)
 
 
 def _build_profile_completion(user_id: str) -> int:
@@ -75,6 +100,7 @@ def _build_dashboard_statistics(user_id: str) -> dict:
         "intelligence_count": len(completed_intelligence),
         "jobs_matched_count": len(match_history),
         "average_match_score": _safe_mean(scores),
+        "resume_completeness_score": _build_resume_completeness_score(user_id),
         "profile_completion": _build_profile_completion(user_id),
         "career_readiness_score": _safe_mean(scores + [len(completed_intelligence) * 25]),
         "latest_interview_score": latest_interview.overall_score if latest_interview else None,

@@ -5,8 +5,10 @@ import { jobsApi, applicationsApi } from "../api/client";
 import JobCard from "../components/jobs/JobCard";
 import ResumeMatchModal from "../components/jobs/ResumeMatchModal";
 import Loader from "../components/common/Loader";
+import { useUser } from "../context/UserContext";
 
 export default function JobSearch() {
+  const { user } = useUser();
   const [form, setForm] = useState({ query: "", location: "", experience: "Any experience", results_per_page: 20 });
   const [jobs, setJobs] = useState([]);
   const [isLoading, setLoading] = useState(false);
@@ -25,7 +27,9 @@ export default function JobSearch() {
   };
 
   const matchResume = async (job) => {
-    const storedResume = localStorage.getItem("jobpilot-current-resume");
+    const storedResume = user?.id
+      ? localStorage.getItem(`jobpilot-current-resume-${user.id}`)
+      : null;
     const resume = storedResume ? JSON.parse(storedResume) : null;
     if (!resume?.id) { setMatchState({ job, error: "Upload and analyze a resume before requesting a job match." }); return; }
     if (resume.intelligence?.status !== "complete") { setMatchState({ job, error: "Your resume analysis is not ready yet. Upload a resume with completed AI analysis first." }); return; }

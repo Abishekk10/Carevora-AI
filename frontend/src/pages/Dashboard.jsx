@@ -74,7 +74,8 @@ const actions = [
 function ProgressRing({ value, label, accent = "#6366f1" }) {
   const radius = 46;
   const circumference = 2 * Math.PI * radius;
-  const progress = Math.max(0, Math.min(100, value));
+  const hasScore = typeof value === "number";
+  const progress = hasScore ? Math.max(0, Math.min(100, value)) : 0;
   const offset = circumference - (progress / 100) * circumference;
 
   return (
@@ -94,8 +95,8 @@ function ProgressRing({ value, label, accent = "#6366f1" }) {
           />
         </svg>
         <div className="absolute text-center">
-          <p className="text-lg font-bold text-slate-100">{progress}</p>
-          <p className="text-[10px] uppercase tracking-[0.25em] text-slate-400">score</p>
+          <p className="text-lg font-bold text-slate-100">{hasScore ? progress : "N/A"}</p>
+          <p className="text-[10px] uppercase tracking-[0.25em] text-slate-400">{hasScore ? "score" : "resume"}</p>
         </div>
       </div>
       <p className="text-xs font-semibold text-slate-300">{label}</p>
@@ -204,7 +205,8 @@ export default function Dashboard() {
   }, []);
 
   const stats = dashboardData?.dashboard_statistics || {};
-  const resumeScore = stats.average_match_score ?? 0;
+  const resumeCompletenessScore = stats.resume_completeness_score;
+  const resumeScore = resumeCompletenessScore ?? 0;
   const atsScore = stats.profile_completion ?? 0;
   const readinessScore = stats.career_readiness_score ?? 0;
   const profileCompletion = stats.profile_completion ?? 0;
@@ -302,7 +304,7 @@ export default function Dashboard() {
 
       <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <MetricCard title="AI Resume Score" value={`${resumeScore}/100`} hint="Quality + positioning" icon={Sparkles} tone="from-violet-500/20 to-indigo-500/5" accent="text-violet-600" />
+          <MetricCard title="Resume Completeness" value={resumeCompletenessScore === null || resumeCompletenessScore === undefined ? "N/A" : `${resumeCompletenessScore}/100`} hint={resumeCompletenessScore === null || resumeCompletenessScore === undefined ? "Upload/analyze your resume" : "Profile completeness"} icon={Sparkles} tone="from-violet-500/20 to-indigo-500/5" accent="text-violet-600" />
           <MetricCard title="ATS Score" value={`${atsScore}%`} hint="Profile completion readiness" icon={FileUp} tone="from-sky-500/20 to-cyan-500/5" accent="text-sky-600" />
           <MetricCard title="Career Score" value={`${readinessScore}%`} hint="Opportunity momentum" icon={TrendingUp} tone="from-emerald-500/20 to-lime-500/5" accent="text-emerald-600" />
           <MetricCard title="Jobs Matched" value={String(stats.jobs_matched_count ?? 0)} hint="Live match history" icon={BriefcaseBusiness} tone="from-amber-500/20 to-orange-500/5" accent="text-amber-600" />
@@ -520,7 +522,7 @@ export default function Dashboard() {
           <div className="rounded-[24px] bg-slate-950/60 p-4">
             <p className="text-sm text-slate-300">Resume score</p>
             <div className="mt-4 flex justify-center">
-              <ProgressRing value={resumeScore} label="AI Resume Score" accent="#8b5cf6" />
+              <ProgressRing value={resumeCompletenessScore} label="Resume Completeness" accent="#8b5cf6" />
             </div>
           </div>
           <div className="rounded-[24px] bg-slate-950/60 p-4">
